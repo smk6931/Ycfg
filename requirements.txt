@@ -1,0 +1,35 @@
+# Backend Framework
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+
+# Database (PostgreSQL + Async)
+sqlalchemy[asyncio]>=2.0.25
+asyncpg>=0.29.0
+alembic>=1.13.1
+pgvector>=0.2.4
+
+# API Clients (Data Collection)
+requests>=2.31.0
+httpx>=0.26.0
+feedparser>=6.0.10
+beautifulsoup4>=4.12.3
+apify-client>=1.6.0
+google-api-python-client>=2.115.0
+
+# AI & Vector
+openai>=1.10.0
+google-generativeai>=0.3.2
+langchain>=0.1.5
+tiktoken>=0.5.2
+
+# Utilities
+python-dotenv>=1.0.0
+gspread>=6.0.0
+oauth2client>=4.1.3
+pandas>=2.2.0
+loguru>=0.7.2
+
+# Trend Analysis (Free Alternative to Apify)
+pytrends>=4.9.0

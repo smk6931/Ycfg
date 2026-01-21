@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  ycfg_db:
+    container_name: Project_Keyword
+    image: ankane/pgvector:latest # PostgreSQL 15+ 기반에 pgvector 설치된 이미지
+    restart: always
+    environment:
+      POSTGRES_USER: Project_Keyword
+      POSTGRES_PASSWORD: 1234
+      POSTGRES_DB: Project_Keyword
+    ports:
+      - "5440:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - ycfg_network
+  # (선택사항) pgAdmin - DB 관리 도구
+  # pgadmin:
+  #   image: dpage/pgadmin4
+  #   environment:
+  #     PGADMIN_DEFAULT_EMAIL: admin@ycfg.com
+  #     PGADMIN_DEFAULT_PASSWORD: admin
+  #   ports:
+  #     - "5050:80"
+  #   networks:
+  #     - ycfg_network
+  #   depends_on:
+  #     - ycfg_db
+
+volumes:
+  postgres_data:
+
+
+networks:
+  ycfg_network:
+    driver: bridge

@@ -1,0 +1,959 @@
+{
+  "name": "Global Trends Collector",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 6
+            }
+          ]
+        }
+      },
+      "id": "trigger-001",
+      "name": "Daily 6AM Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apify.com/v2/acts/data_xplorer~google-trends-fast-scraper/run-sync-get-dataset-items",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "token",
+              "value": "여기에 API KEY 입력"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"enableTrendingSearches\": true,\n  \"trendingSearchesCountry\": \"KR\",\n  \"trendingSearchesTimeframe\": \"24\"\n}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "trends-kr",
+      "name": "Trends KR",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        304,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apify.com/v2/acts/data_xplorer~google-trends-fast-scraper/run-sync-get-dataset-items",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "token",
+              "value": "여기에 API KEY 입력"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"enableTrendingSearches\": true,\n  \"trendingSearchesCountry\": \"JP\",\n  \"trendingSearchesTimeframe\": \"24\"\n}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "trends-jp",
+      "name": "Trends JP",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        304,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apify.com/v2/acts/data_xplorer~google-trends-fast-scraper/run-sync-get-dataset-items",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "token",
+              "value": "여기에 API KEY 입력"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"enableTrendingSearches\": true,\n  \"trendingSearchesCountry\": \"TW\",\n  \"trendingSearchesTimeframe\": \"24\"\n}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "trends-tw",
+      "name": "Trends TW",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        304,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apify.com/v2/acts/data_xplorer~google-trends-fast-scraper/run-sync-get-dataset-items",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "token",
+              "value": "여기에 API KEY 입력"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"enableTrendingSearches\": true,\n  \"trendingSearchesCountry\": \"US\",\n  \"trendingSearchesTimeframe\": \"24\"\n}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "trends-us",
+      "name": "Trends US",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        304,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apify.com/v2/acts/data_xplorer~google-trends-fast-scraper/run-sync-get-dataset-items",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "token",
+              "value": "여기에 API KEY 입력"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"enableTrendingSearches\": true,\n  \"trendingSearchesCountry\": \"ID\",\n  \"trendingSearchesTimeframe\": \"24\"\n}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "trends-id",
+      "name": "Trends ID",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        304,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// 모든 국가의 트렌드 데이터 수집\nconst items = $input.all();\nconst keywordCollectedAt = new Date().toISOString();\n\nconst allKeywords = [];\n\n// 각 입력 아이템에서 키워드 추출\nfor (const item of items) {\n  const data = item.json;\n  \n  // Set 노드에서 추가한 requestedCountry 사용 (우선), 없으면 geo 필드 사용\n  const country = data.requestedCountry || data.geo || 'US';\n  \n  // Apify 응답에서 trending_searches 추출\n  if (data.trending_searches && Array.isArray(data.trending_searches)) {\n    for (const trend of data.trending_searches) {\n      allKeywords.push({\n        keyword: trend.term || trend.query || '',\n        country: country,\n        trend_volume: trend.trend_volume_formatted || trend.formattedTraffic || 0,\n        rank: trend.rank || 0,\n        keyword_collected_at: keywordCollectedAt\n      });\n    }\n  }\n  \n  // 배열 형태로 직접 오는 경우\n  if (Array.isArray(data)) {\n    for (const trend of data) {\n      if (trend.trending_searches) {\n        for (const t of trend.trending_searches) {\n          allKeywords.push({\n            keyword: t.term || t.query || '',\n            country: country,\n            trend_volume: t.trend_volume_formatted || t.formattedTraffic || 0,\n            rank: t.rank || 0,\n            keyword_collected_at: keywordCollectedAt\n          });\n        }\n      }\n    }\n  }\n}\n\n// 국가별 Top 20 선별\nconst countries = ['KR', 'JP', 'TW', 'US', 'ID'];\nconst finalKeywords = [];\n\nfor (const country of countries) {\n  const countryKeywords = allKeywords\n    .filter(k => k.country === country && k.keyword)\n    .slice(0, 20);\n  \n  countryKeywords.forEach((k, idx) => {\n    finalKeywords.push({\n      ...k,\n      rank: idx + 1,\n      instagram_posts: 0,\n      youtube_videos: 0,\n      news_count: 0,\n      score: 0\n    });\n  });\n}\n\nif (finalKeywords.length === 0) {\n  return [{ json: { error: 'No keywords found', keyword_collected_at: keywordCollectedAt } }];\n}\n\nreturn finalKeywords.map(k => ({ json: k }));"
+      },
+      "id": "extract-keywords",
+      "name": "Extract Keywords",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        704,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1PfZv2TMIfvCCL5rriI_PfxXRKmH5H45yY1PjTWv5cyo",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Keywords",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {}
+      },
+      "id": "sheet-keywords",
+      "name": "Sheet Keywords",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        912,
+        208
+      ],
+      "credentials": {
+        "googleApi": {
+          "id": "f3sQQTR7oQpnZHZe",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "loop-keywords",
+      "name": "Loop Keywords",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        912,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apify.com/v2/acts/apify~instagram-hashtag-scraper/run-sync-get-dataset-items",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "token",
+              "value": "여기에 API KEY 입력"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ hashtags: [$json.keyword], resultsType: 'posts', resultsLimit: 10 }) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "instagram-scraper",
+      "name": "Instagram Scraper",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst collectedAt = new Date().toISOString();\nconst keyword = $('Loop Keywords').item.json.keyword;\nconst keywordCountry = $('Loop Keywords').item.json.country;\nconst keywordCollectedAt = $('Loop Keywords').item.json.keyword_collected_at;\n\nconst results = [];\n\nfor (const item of items) {\n  const data = item.json;\n  \n  // 단일 포스트 객체인 경우\n  if (data.id || data.shortCode) {\n    results.push({\n      json: {\n        collected_at: collectedAt,\n        keyword: keyword,\n        keyword_country: keywordCountry,\n        keyword_collected_at: keywordCollectedAt,\n        post_id: data.id || data.shortCode || '',\n        username: data.ownerUsername || data.owner?.username || '',\n        caption: (data.caption || '').substring(0, 500),\n        likes: data.likesCount || data.likes || 0,\n        comments: data.commentsCount || data.comments || 0,\n        timestamp: data.timestamp || data.takenAtTimestamp || '',\n        url: data.url || (data.shortCode ? 'https://instagram.com/p/' + data.shortCode : '')\n      }\n    });\n  }\n  \n  // 배열인 경우\n  if (Array.isArray(data)) {\n    for (const post of data) {\n      results.push({\n        json: {\n          collected_at: collectedAt,\n          keyword: keyword,\n          keyword_country: keywordCountry,\n          keyword_collected_at: keywordCollectedAt,\n          post_id: post.id || post.shortCode || '',\n          username: post.ownerUsername || post.owner?.username || '',\n          caption: (post.caption || '').substring(0, 500),\n          likes: post.likesCount || post.likes || 0,\n          comments: post.commentsCount || post.comments || 0,\n          timestamp: post.timestamp || post.takenAtTimestamp || '',\n          url: post.url || (post.shortCode ? 'https://instagram.com/p/' + post.shortCode : '')\n        }\n      });\n    }\n  }\n}\n\nif (results.length === 0) {\n  return [{ json: { collected_at: collectedAt, keyword: keyword, keyword_country: keywordCountry, keyword_collected_at: keywordCollectedAt, post_id: 'NO_DATA', username: '', caption: '', likes: 0, comments: 0, timestamp: '', url: '' } }];\n}\n\nreturn results;"
+      },
+      "id": "process-instagram",
+      "name": "Process Instagram",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1504,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1PfZv2TMIfvCCL5rriI_PfxXRKmH5H45yY1PjTWv5cyo",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Instagram",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {}
+      },
+      "id": "sheet-instagram",
+      "name": "Sheet Instagram",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1808,
+        608
+      ],
+      "credentials": {
+        "googleApi": {
+          "id": "f3sQQTR7oQpnZHZe",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://www.googleapis.com/youtube/v3/search",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "={{ $('Loop Keywords').item.json.keyword }}"
+            },
+            {
+              "name": "part",
+              "value": "snippet"
+            },
+            {
+              "name": "type",
+              "value": "video"
+            },
+            {
+              "name": "maxResults",
+              "value": "10"
+            },
+            {
+              "name": "key",
+              "value": "AIzaSyAZ3uyV-syXGM3sfpBE7lyTloYua7dKVsY"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "youtube-search",
+      "name": "YouTube Search",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2112,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst collectedAt = new Date().toISOString();\nconst keyword = $('Loop Keywords').item.json.keyword;\nconst keywordCountry = $('Loop Keywords').item.json.country;\nconst keywordCollectedAt = $('Loop Keywords').item.json.keyword_collected_at;\n\nconst results = [];\n\nfor (const item of items) {\n  const data = item.json;\n  \n  // YouTube API 응답 처리\n  if (data.items && Array.isArray(data.items)) {\n    for (const video of data.items) {\n      const snippet = video.snippet || {};\n      results.push({\n        json: {\n          collected_at: collectedAt,\n          keyword: keyword,\n          keyword_country: keywordCountry,\n          keyword_collected_at: keywordCollectedAt,\n          video_id: video.id?.videoId || video.id || '',\n          title: snippet.title || '',\n          channel: snippet.channelTitle || '',\n          views: 0,\n          likes: 0,\n          published_at: snippet.publishedAt || '',\n          url: video.id?.videoId ? 'https://youtube.com/watch?v=' + video.id.videoId : ''\n        }\n      });\n    }\n  }\n}\n\nif (results.length === 0) {\n  return [{ json: { collected_at: collectedAt, keyword: keyword, keyword_country: keywordCountry, keyword_collected_at: keywordCollectedAt, video_id: 'NO_DATA', title: '', channel: '', views: 0, likes: 0, published_at: '', url: '' } }];\n}\n\nreturn results;"
+      },
+      "id": "process-youtube",
+      "name": "Process YouTube",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2400,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1PfZv2TMIfvCCL5rriI_PfxXRKmH5H45yY1PjTWv5cyo",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "YouTube",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {}
+      },
+      "id": "sheet-youtube",
+      "name": "Sheet YouTube",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        2704,
+        608
+      ],
+      "credentials": {
+        "googleApi": {
+          "id": "f3sQQTR7oQpnZHZe",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "={{ (() => {\n  const keyword = $('Loop Keywords').item.json.keyword;\n  const country = $('Loop Keywords').item.json.country;\n  const langMap = { KR: 'ko', JP: 'ja', TW: 'zh-TW', US: 'en', ID: 'id' };\n  const hl = langMap[country] || 'en';\n  return 'https://news.google.com/rss/search?q=' + encodeURIComponent(keyword) + '&hl=' + hl + '&gl=' + country + '&ceid=' + country + ':' + hl;\n})() }}",
+        "options": {}
+      },
+      "id": "news-rss",
+      "name": "News RSS",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1,
+      "position": [
+        3008,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst collectedAt = new Date().toISOString();\nconst keyword = $('Loop Keywords').item.json.keyword;\nconst keywordCountry = $('Loop Keywords').item.json.country;\nconst keywordCollectedAt = $('Loop Keywords').item.json.keyword_collected_at;\n\nconst results = [];\n\nfor (const item of items) {\n  const data = item.json;\n  \n  // RSS 피드 아이템 처리\n  if (data.title && data.link) {\n    results.push({\n      json: {\n        collected_at: collectedAt,\n        keyword: keyword,\n        keyword_country: keywordCountry,\n        keyword_collected_at: keywordCollectedAt,\n        title: (data.title || '').substring(0, 200),\n        source: data.creator || data.source || 'Google News',\n        description: (data.contentSnippet || data.content || '').substring(0, 500),\n        published_at: data.pubDate || data.isoDate || '',\n        url: data.link || ''\n      }\n    });\n  }\n}\n\nif (results.length === 0) {\n  return [{ json: { collected_at: collectedAt, keyword: keyword, keyword_country: keywordCountry, keyword_collected_at: keywordCollectedAt, title: 'NO_DATA', source: '', description: '', published_at: '', url: '' } }];\n}\n\nreturn results;"
+      },
+      "id": "process-news",
+      "name": "Process News",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3312,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1PfZv2TMIfvCCL5rriI_PfxXRKmH5H45yY1PjTWv5cyo",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "News",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {}
+      },
+      "id": "sheet-news",
+      "name": "Sheet News",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        3600,
+        608
+      ],
+      "credentials": {
+        "googleApi": {
+          "id": "f3sQQTR7oQpnZHZe",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "country-kr",
+              "name": "requestedCountry",
+              "value": "KR",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "set-country-kr",
+      "name": "Set Country KR",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        464,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "country-jp",
+              "name": "requestedCountry",
+              "value": "JP",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "set-country-jp",
+      "name": "Set Country JP",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        464,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "country-tw",
+              "name": "requestedCountry",
+              "value": "TW",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "set-country-tw",
+      "name": "Set Country TW",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        464,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "country-us",
+              "name": "requestedCountry",
+              "value": "US",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "set-country-us",
+      "name": "Set Country US",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        464,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "country-id",
+              "name": "requestedCountry",
+              "value": "ID",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "set-country-id",
+      "name": "Set Country ID",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        464,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "formTitle": "키워드 검색",
+        "formDescription": "검색할 키워드를 입력하세요",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "키워드 목록",
+              "fieldType": "textarea",
+              "placeholder": "AI\n비트코인\nChatGPT\n...\n(한 줄에 하나씩)",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "국가",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "KR - 한국"
+                  },
+                  {
+                    "option": "US - 미국"
+                  },
+                  {
+                    "option": "JP - 일본"
+                  },
+                  {
+                    "option": "TW - 대만"
+                  },
+                  {
+                    "option": "ID - 인도네시아"
+                  }
+                ]
+              },
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {
+          "respondWithOptions": {
+            "values": {
+              "formSubmittedText": "키워드 검색이 시작되었습니다!"
+            }
+          }
+        }
+      },
+      "id": "form-trigger",
+      "name": "Keyword Form",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        -208,
+        1200
+      ],
+      "webhookId": "keyword-form"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 폼에서 입력받은 데이터 파싱\nconst formData = $input.first().json;\n\n// 키워드 목록 파싱 (줄바꿈으로 분리)\nconst keywordsText = formData[\"키워드 목록\"] || \"\";\nconst keywords = keywordsText\n  .split(/[\\n,]+/)\n  .map(k => k.trim())\n  .filter(k => k.length > 0);\n\n// 국가 코드 추출 (예: \"KR - 한국\" → \"KR\")\nconst countryField = formData[\"국가\"] || \"KR - 한국\";\nconst country = countryField.split(\" - \")[0];\n\nconst keywordCollectedAt = new Date().toISOString();\n\nif (keywords.length === 0) {\n  return [{ json: { error: \"키워드를 입력해주세요\" } }];\n}\n\nreturn keywords.map((keyword, idx) => ({\n  json: {\n    keyword: keyword,\n    country: country,\n    trend_volume: 0,\n    rank: idx + 1,\n    keyword_collected_at: keywordCollectedAt,\n    instagram_posts: 0,\n    youtube_videos: 0,\n    news_count: 0,\n    score: 0\n  }\n}));"
+      },
+      "id": "parse-keywords",
+      "name": "Parse Keywords",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        112,
+        1200
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Daily 6AM Trigger": {
+      "main": [
+        [
+          {
+            "node": "Trends KR",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Trends JP",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Trends TW",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Trends US",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Trends ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trends KR": {
+      "main": [
+        [
+          {
+            "node": "Set Country KR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trends JP": {
+      "main": [
+        [
+          {
+            "node": "Set Country JP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trends TW": {
+      "main": [
+        [
+          {
+            "node": "Set Country TW",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trends US": {
+      "main": [
+        [
+          {
+            "node": "Set Country US",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trends ID": {
+      "main": [
+        [
+          {
+            "node": "Set Country ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Keywords": {
+      "main": [
+        [
+          {
+            "node": "Sheet Keywords",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Loop Keywords",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Keywords": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Instagram Scraper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Instagram Scraper": {
+      "main": [
+        [
+          {
+            "node": "Process Instagram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Instagram": {
+      "main": [
+        [
+          {
+            "node": "Sheet Instagram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sheet Instagram": {
+      "main": [
+        [
+          {
+            "node": "YouTube Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "YouTube Search": {
+      "main": [
+        [
+          {
+            "node": "Process YouTube",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process YouTube": {
+      "main": [
+        [
+          {
+            "node": "Sheet YouTube",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sheet YouTube": {
+      "main": [
+        [
+          {
+            "node": "News RSS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "News RSS": {
+      "main": [
+        [
+          {
+            "node": "Process News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process News": {
+      "main": [
+        [
+          {
+            "node": "Sheet News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sheet News": {
+      "main": [
+        [
+          {
+            "node": "Loop Keywords",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Country KR": {
+      "main": [
+        [
+          {
+            "node": "Extract Keywords",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Country JP": {
+      "main": [
+        [
+          {
+            "node": "Extract Keywords",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Country TW": {
+      "main": [
+        [
+          {
+            "node": "Extract Keywords",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Country US": {
+      "main": [
+        [
+          {
+            "node": "Extract Keywords",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Country ID": {
+      "main": [
+        [
+          {
+            "node": "Extract Keywords",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Keyword Form": {
+      "main": [
+        [
+          {
+            "node": "Parse Keywords",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Keywords": {
+      "main": [
+        [
+          {
+            "node": "Loop Keywords",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "107c9ba0-c1da-4754-bc94-f76231bce7ed",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "29e0f3b412b0a3334e7c360556b39186d6a27f480e5f2390a5741f0c6c624be1"
+  },
+  "id": "HFgG2SYjeKPbOx1k",
+  "tags": []
+}
