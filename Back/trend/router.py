@@ -11,18 +11,17 @@ from .schemas import TrendCollectionResponse
 router = APIRouter(prefix="/trend", tags=["Trend Collection"])
 
 
-@router.post("/collect-trending", response_model=TrendCollectionResponse)
+@router.post("/collect-trending")
 async def collect_trending_contents(
-    country: str = "KR",
+    country: str = Query(..., description="국가 코드 (KR, US, JP 등)"),
     db: AsyncSession = Depends(get_db)
 ):
-    """
-    실시간 인기 콘텐츠 수집 (YouTube Trending + Google News Headlines)
-    키워드 중간 단계 없이 바로 인기 콘텐츠를 가져옴
-    """
+    """실시간 인기 콘텐츠 수집 (YouTube + News + Signal)"""
     service = TrendService(db)
-    result = await service.collect_trending_contents(country)
-    return result
+    await service.collect_trending_contents(country)
+    
+    # 수집 후 바로 전체 목록 조회해서 반환 (중복이어도 DB에 있으면 표시)
+    return await get_trending_contents(country=country, limit=50, db=db)
 
 
 @router.get("/trending/contents")
@@ -42,9 +41,9 @@ async def get_trending_contents(
     today = datetime.now().strftime("%Y%m%d")
     dummy_keyword = f"Trending_{country}_{today}"
     
-    stmt = select(Keyword).where(Keyword.keyword == dummy_keyword)
+    stmt = select(Keyword).where(Keyword.keyword == dummy_keyword).order_by(Keyword.id.desc())
     result = await db.execute(stmt)
-    keyword = result.scalar_one_or_none()
+    keyword = result.scalars().first()
     
     if not keyword:
         return {"youtube": [], "news": []}

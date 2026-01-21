@@ -97,7 +97,7 @@ class NewsContent(Base):
     source = Column(String(100))
     description = Column(Text)
     published_at = Column(String(50))
-    url = Column(String(500), unique=True)
+    url = Column(Text, unique=True)
     
     # 수집 메타
     collected_at = Column(DateTime(timezone=True), server_default=func.now())

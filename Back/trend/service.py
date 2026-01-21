@@ -6,6 +6,7 @@ from sqlalchemy import select, func, update
 from typing import List, Dict, Any
 from loguru import logger
 from datetime import datetime
+import asyncio
 
 from .models import Keyword, InstagramContent, YouTubeContent, NewsContent
 from .schemas import TrendCollectionResponse
@@ -37,20 +38,40 @@ class TrendService:
         today = datetime.now().strftime("%Y%m%d")
         dummy_keyword = f"Trending_{country}_{today}"
         
-        # 더미 키워드 DB 저장
-        keyword_obj = Keyword(
-            keyword=dummy_keyword,
-            country=country,
-            trend_volume=0,
-            rank=0
-        )
-        self.db.add(keyword_obj)
-        await self.db.flush()  # ID 확보
+        # 더미 키워드 중복 체크
+        stmt = select(Keyword).where(Keyword.keyword == dummy_keyword).order_by(Keyword.id.desc())
+        result = await self.db.execute(stmt)
+        keyword_obj = result.scalars().first()
+        
+        if not keyword_obj:
+            keyword_obj = Keyword(
+                keyword=dummy_keyword,
+                country=country,
+                trend_volume=0,
+                rank=0
+            )
+            self.db.add(keyword_obj)
+            await self.db.flush()  # ID 확보
+        
         keyword_id = keyword_obj.id
         
         # 1. YouTube Trending 수집
         youtube_count = 0
         videos = await self.youtube.get_trending_videos(country, max_results=20)
+        
+        # [Plan B] 한국인데 Trending이 0개면 -> 실시간 검색어로 영상 검색
+        if not videos and country == 'KR':
+            logger.warning("⚠️ YouTube Trending 0개 -> 실시간 검색어로 대체 수집 시도")
+            try:
+                loop = asyncio.get_event_loop()
+                signal_keywords = await loop.run_in_executor(None, self.crawler._crawl_signal_bz)
+                if signal_keywords:
+                    top_keyword = signal_keywords[0]['keyword']
+                    logger.info(f"🔎 대체 검색어: {top_keyword}")
+                    videos = await self.youtube.search_videos(top_keyword, max_results=10)
+            except Exception as e:
+                logger.error(f"Plan B 실패: {e}")
+
         if videos:
             await self._save_youtube_contents(keyword_id, country, videos)
             youtube_count = len(videos)
@@ -58,23 +79,43 @@ class TrendService:
         
         # 2. Google News RSS 수집
         news_count = 0
-        articles = await self.crawler._fetch_google_news_rss(country)
+        loop = asyncio.get_event_loop()
+        articles = await loop.run_in_executor(None, self.crawler._fetch_google_news_rss, country)
+        
+        # 3. (한국 전용) Signal.bz 실시간 검색어 수집
+        if country == 'KR':
+            try:
+                signal_keywords = await loop.run_in_executor(None, self.crawler._crawl_signal_bz)
+                if signal_keywords:
+                    logger.info(f"✅ Signal.bz 추가: {len(signal_keywords)}개")
+                    # 실검을 뉴스 리스트 앞단에 추가
+                    for item in signal_keywords:
+                        articles.insert(0, {
+                            'keyword': f"🔥 {item['keyword']}", # 강조 표시
+                            'url': '', # 실검은 URL 없음 (Google 검색 링크를 만들어줄 수도 있음)
+                            'published_at': datetime.now().isoformat()
+                        })
+            except Exception as e:
+                logger.warning(f"Signal.bz 수집 실패: {e}")
+
         if articles:
             # articles는 이미 Dict 형태 (keyword, country, rank 포함)
             # 우리는 title만 필요하므로 변환
             news_list = []
             for article in articles:
                 news_list.append({
-                    'title': article['keyword'],  # 뉴스 제목을 'keyword' 필드에서 가져옴
-                    'source': 'Google News',
+                    'title': article['keyword'],  # 뉴스 제목
+                    'source': 'Google News' if 'keyword' in article and '🔥' not in article['keyword'] else '실시간 검색어',
                     'description': '',
-                    'url': '',  # RSS 수집 시 URL이 없을 수 있음
-                    'published_at': datetime.now().isoformat()
+                    'url': article.get('url', ''),
+                    # 실검의 경우 구글 검색 URL 생성
+                    'url': article.get('url') or (f"https://www.google.com/search?q={article['keyword'].replace('🔥 ', '')}" if '🔥' in article['keyword'] else ''),
+                    'published_at':  article.get('published_at') or datetime.now().isoformat()
                 })
             
             await self._save_news_contents(keyword_id, country, news_list)
             news_count = len(news_list)
-            logger.info(f"✅ Google News: {news_count}개")
+            logger.info(f"✅ News + Signal: {news_count}개")
         
         # 집계 업데이트
         await self._update_keyword_aggregates(keyword_id)
@@ -93,31 +134,56 @@ class TrendService:
     
     async def _save_youtube_contents(self, keyword_id: int, country: str, videos: List[Dict[str, Any]]):
         """유튜브 콘텐츠 저장"""
-        for video in videos:
-            stmt = select(YouTubeContent).where(YouTubeContent.video_id == video["video_id"])
-            result = await self.db.execute(stmt)
-            existing = result.scalar_one_or_none()
-            
-            if not existing:
+        logger.info(f"🎬 YouTube 저장 시작: keyword_id={keyword_id}, 영상 수={len(videos)}")
+        saved_count = 0
+        skipped_count = 0
+        
+        for idx, video in enumerate(videos):
+            try:
+                video_id = video.get("video_id")
+                title = video.get("title", "제목 없음")[:50]
+                logger.info(f"  [{idx+1}/{len(videos)}] 처리 중: {title}...")
+                
+                # 중복 체크
+                stmt = select(YouTubeContent).where(YouTubeContent.video_id == video_id)
+                result = await self.db.execute(stmt)
+                existing = result.scalar_one_or_none()
+                
+                if existing:
+                    logger.info(f"    ⏭️ 중복 건너김 (video_id={video_id})")
+                    skipped_count += 1
+                    continue
+                
+                # 저장
                 content = YouTubeContent(
                     keyword_id=keyword_id,
                     keyword_country=country,
                     **video
                 )
                 self.db.add(content)
+                saved_count += 1
+                logger.info(f"    ✅ 저장 예정 (누적 {saved_count}개)")
+                
+            except Exception as e:
+                logger.error(f"    ❌ 저장 실패: {e}")
+                continue
         
         await self.db.commit()
+        logger.info(f"🎬 YouTube 저장 완료: 신규 {saved_count}개, 중복 {skipped_count}개, 총 커밋됨")
     
     async def _save_news_contents(self, keyword_id: int, country: str, articles: List[Dict[str, Any]]):
         """뉴스 콘텐츠 저장"""
         for article in articles:
-            # URL이 없으면 중복 체크 생략하고 그냥 저장
-            if article.get('url'):
-                stmt = select(NewsContent).where(NewsContent.url == article["url"])
-                result = await self.db.execute(stmt)
-                existing = result.scalar_one_or_none()
-                if existing:
-                    continue
+            url = article.get('url', '')
+            if not url:
+                continue
+
+            # URL 중복 체크
+            stmt = select(NewsContent).where(NewsContent.url == url)
+            result = await self.db.execute(stmt)
+            existing = result.scalar_one_or_none()
+            if existing:
+                continue
             
             content = NewsContent(
                 keyword_id=keyword_id,

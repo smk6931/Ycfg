@@ -63,8 +63,11 @@ class YouTubeClient:
         
         try:
             loop = asyncio.get_event_loop()
+            logger.info(f"🎥 YouTube Mocking API 호출 시도: {country}")
             
             def _fetch():
+                if not self.youtube:
+                     raise Exception("YouTube Client is None")
                 request = self.youtube.videos().list(
                     part="snippet,statistics",
                     chart="mostPopular",
@@ -74,9 +77,11 @@ class YouTubeClient:
                 return request.execute()
             
             response = await loop.run_in_executor(None, _fetch)
+            items = response.get('items', [])
+            logger.info(f"🎥 YouTube API 응답: {len(items)}개 아이템")
             
             videos = []
-            for item in response.get('items', []):
+            for item in items:
                 snippet = item['snippet']
                 stats = item.get('statistics', {})
                 
@@ -96,3 +101,4 @@ class YouTubeClient:
         except Exception as e:
             logger.error(f"YouTube Trending 수집 실패: {str(e)}")
             return []
+

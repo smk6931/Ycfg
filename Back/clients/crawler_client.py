@@ -96,7 +96,8 @@ class CrawlerClient:
                     "keyword": title, # 뉴스 제목 자체가 이슈 키워드
                     "country": country,
                     "trend_volume": 0,
-                    "rank": i + 1
+                    "rank": i + 1,
+                    "url": entry.link
                 })
                 
             if keywords:

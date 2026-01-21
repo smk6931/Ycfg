@@ -1,2 +1,5 @@
 python -m uvicorn Back.main:app --reload --host 0.0.0.0 --port 8001
+
 npm run dev
+
+python -m alembic revision --autogenerate -m "change news url to text"
