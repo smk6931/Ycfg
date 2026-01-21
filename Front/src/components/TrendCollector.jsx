@@ -23,7 +23,9 @@ const TrendCollector = () => {
   const fetchContents = async () => {
     try {
       const res = await trendApi.getTrendingContents(country, 50);
-      setContents(res.data);
+      if (res && res.youtube) {
+        setContents(res);
+      }
     } catch (err) {
       console.error('조회 실패', err);
     }
@@ -36,10 +38,11 @@ const TrendCollector = () => {
 
     try {
       const res = await trendApi.collectTrending(country);
-      if (res.data.success) {
-        await fetchContents();
+      // 백엔드가 { youtube: [], news: [] } 형태를 반환함
+      if (res && res.youtube) {
+        setContents(res);
       } else {
-        setError(res.data.message);
+        setError('데이터 형식이 올바르지 않습니다.');
       }
     } catch (err) {
       setError('수집 실패');

@@ -150,11 +150,20 @@ class TrendService:
                 existing = result.scalar_one_or_none()
                 
                 if existing:
-                    logger.info(f"    ⏭️ 중복 건너김 (video_id={video_id})")
+                    # 이미 존재하는 영상이면, 현재 키워드(최신) 소속으로 업데이트
+                    logger.info(f"    ♻️ 중복 영상 -> 최신 키워드({keyword_id})로 소속 변경 (video_id={video_id})")
+                    existing.keyword_id = keyword_id
+                    existing.collected_at = func.now() # 수집 시각도 갱신
+                    # 조회수 등 최신 정보로 업데이트
+                    existing.views = video.get("views", existing.views)
+                    existing.likes = video.get("likes", existing.likes)
+                    
                     skipped_count += 1
+                    saved_count += 1 # 화면에 보여주기 위해 카운트 포함
+                    # commit은 루프 밖에서 한 번에 함 (SQLAlchemy 객체 변경 감지)
                     continue
                 
-                # 저장
+                # 저장 (신규)
                 content = YouTubeContent(
                     keyword_id=keyword_id,
                     keyword_country=country,
@@ -183,6 +192,9 @@ class TrendService:
             result = await self.db.execute(stmt)
             existing = result.scalar_one_or_none()
             if existing:
+                # 중복 뉴스 -> 최신 키워드로 소속 업데이트
+                existing.keyword_id = keyword_id
+                existing.collected_at = func.now()
                 continue
             
             content = NewsContent(

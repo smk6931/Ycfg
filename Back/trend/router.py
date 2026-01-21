@@ -1,7 +1,7 @@
 """
 트렌드 수집 API 엔드포인트
 """
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.database import get_db
@@ -20,8 +20,13 @@ async def collect_trending_contents(
     service = TrendService(db)
     await service.collect_trending_contents(country)
     
-    # 수집 후 바로 전체 목록 조회해서 반환 (중복이어도 DB에 있으면 표시)
-    return await get_trending_contents(country=country, limit=50, db=db)
+    # 세션 갱신 (최신 커밋된 데이터 읽기 위함)
+    db.expire_all()
+    
+    # 수집 후 바로 전체 목록 조회해서 반환
+    result = await get_trending_contents(country=country, limit=50, db=db)
+    print(f"DEBUG: YouTube={len(result['youtube'])}, News={len(result['news'])}")
+    return result
 
 
 @router.get("/trending/contents")
