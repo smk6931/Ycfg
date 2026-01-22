@@ -60,15 +60,11 @@ class TrendService:
         # [Plan B] 한국인데 Trending이 0개면 -> 실시간 검색어로 영상 검색
         if not videos and country == 'KR':
             logger.warning("⚠️ YouTube Trending 0개 -> 실시간 검색어로 대체 수집 시도")
-            try:
-                loop = asyncio.get_event_loop()
-                signal_keywords = await loop.run_in_executor(None, self.scraper.crawl_signal_bz)
-                if signal_keywords:
-                    top_keyword = signal_keywords[0]['keyword']
-                    logger.info(f"🔎 대체 검색어: {top_keyword}")
-                    videos = await self.youtube.search_videos(top_keyword, max_results=10)
-            except Exception as e:
-                logger.error(f"Plan B 실패: {e}")
+            signal_keywords = await self.scraper.crawl_signal_bz()
+            if signal_keywords:
+                top_keyword = signal_keywords[0]['keyword']
+                logger.info(f"🔎 대체 검색어: {top_keyword}")
+                videos = await self.youtube.search_videos(top_keyword, max_results=10)
 
         if videos:
             await self._save_youtube_contents(keyword_id, country, videos)
@@ -77,24 +73,20 @@ class TrendService:
         
         # 2. Google News RSS 수집
         news_count = 0
-        loop = asyncio.get_event_loop()
-        articles = await loop.run_in_executor(None, self.rss.fetch_google_news, country)
+        articles = await self.rss.fetch_google_news(country)
         
         # 3. (한국 전용) Signal.bz 실시간 검색어 수집
         if country == 'KR':
-            try:
-                signal_keywords = await loop.run_in_executor(None, self.scraper.crawl_signal_bz)
-                if signal_keywords:
-                    logger.info(f"✅ Signal.bz 추가: {len(signal_keywords)}개")
-                    # 실검을 뉴스 리스트 앞단에 추가
-                    for item in signal_keywords:
-                        articles.insert(0, {
-                            'keyword': f"🔥 {item['keyword']}", # 강조 표시
-                            'url': '', # 실검은 URL 없음 (Google 검색 링크를 만들어줄 수도 있음)
-                            'published_at': datetime.now().isoformat()
-                        })
-            except Exception as e:
-                logger.warning(f"Signal.bz 수집 실패: {e}")
+            signal_keywords = await self.scraper.crawl_signal_bz()
+            if signal_keywords:
+                logger.info(f"✅ Signal.bz 추가: {len(signal_keywords)}개")
+                # 실검을 뉴스 리스트 앞단에 추가
+                for item in signal_keywords:
+                    articles.insert(0, {
+                        'keyword': f"🔥 {item['keyword']}", # 강조 표시
+                        'url': '', # 실검은 URL 없음 (Google 검색 링크를 만들어줄 수도 있음)
+                        'published_at': datetime.now().isoformat()
+                    })
 
         if articles:
             # articles는 이미 Dict 형태 (keyword, country, rank 포함)

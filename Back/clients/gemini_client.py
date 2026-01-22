@@ -6,9 +6,9 @@ import google.generativeai as genai
 from typing import List, Dict, Any
 from loguru import logger
 import json
-import re
 
 from ..core.config import settings
+from ..utils.execution_utils import handle_exception
 
 class GeminiClient:
     def __init__(self):
@@ -24,6 +24,7 @@ class GeminiClient:
             logger.error(f"⚠️ Gemini Client 초기화 실패: {e}")
             self.model = None
 
+    @handle_exception(error_msg="Gemini 키워드 분석 실패", default=[])
     async def analyze_keywords(self, titles: List[str], country: str = "KR") -> List[Dict[str, Any]]:
         """
         제목 리스트를 받아 핵심 트렌드 키워드와 이유를 추출
@@ -66,24 +67,15 @@ class GeminiClient:
         ]
         """
 
-        try:
-            # 비동기 실행을 위해 loop 활용이 이상적이나, 
-            # google-generativeai의 async 지원 여부에 따라 동기 호출 후 executor 사용 고려.
-            # 0.3.2 버전 이상에서는 async generate_content_async 지원함.
-            
-            logger.info(f"🤖 Gemini 분석 요청 (제목 {len(titles)}개)")
-            response = await self.model.generate_content_async(prompt)
-            
-            text_response = response.text
-            
-            # JSON 파싱 (가끔 ```json ``` 같은 Markdown이 섞여올 수 있음)
-            json_str = text_response.replace("```json", "").replace("```", "").strip()
-            
-            keywords = json.loads(json_str)
-            
-            logger.info(f"✅ Gemini 분석 완료: {len(keywords)}개 키워드")
-            return keywords
-
-        except Exception as e:
-            logger.error(f"❌ Gemini 분석 실패: {e}")
-            return []
+        logger.info(f"🤖 Gemini 분석 요청 (제목 {len(titles)}개)")
+        response = await self.model.generate_content_async(prompt)
+        
+        text_response = response.text
+        
+        # JSON 파싱 (가끔 ```json ``` 같은 Markdown이 섞여올 수 있음)
+        json_str = text_response.replace("```json", "").replace("```", "").strip()
+        
+        keywords = json.loads(json_str)
+        
+        logger.info(f"✅ Gemini 분석 완료: {len(keywords)}개 키워드")
+        return keywords
