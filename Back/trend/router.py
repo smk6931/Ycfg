@@ -13,10 +13,9 @@ router = APIRouter(prefix="/trend", tags=["Trend Collection"])
 @router.post("/collect-trending")
 async def collect_trending_contents(
     country: str = Query(..., description="국가 코드 (KR, US, JP 등)"),
-    source: str = Query("auto", description="수집 소스 (auto, pytrends, signal)")
+    source: str = Query("auto", description="수집 소스 (auto, nate, reddit)")
 ):
-    """실시간 인기 콘텐츠 수집 (YouTube + News + Signal/Pytrends)"""
-    # Raw SQL로 변경되어 db 세션 불필요
+    """실시간 인기 콘텐츠 수집 (YouTube + News + Nate/Reddit)"""
     service = TrendService()
     
     # 1. 수집 수행 (여기서 키워드 리스트 확보)
@@ -25,12 +24,23 @@ async def collect_trending_contents(
     # 2. 수집된 콘텐츠 조회
     contents_res = await get_trending_contents(country=country, limit=50)
     
-    # 3. 결과 병합 (UI 배너를 위해 top_keywords 포함)
+    # 3. 결과 병합 (UI 배너를 위해 top_keywords + ai_keywords 포함)
     return {
         **contents_res, # youtube, news 리스트
         "top_keywords": collection_res.top_keywords,
+        "ai_keywords": collection_res.ai_keywords,
         "message": collection_res.message
     }
+
+
+@router.get("/platform-keywords")
+async def get_platform_keywords(
+    country: str = Query(..., description="국가 코드 (KR, JP)")
+):
+    """플랫폼별 실시간 검색어 수집 (Nate, Yahoo Japan 등)"""
+    service = TrendService()
+    result = await service.get_platform_keywords(country)
+    return result
 
 
 @router.get("/trending/contents")

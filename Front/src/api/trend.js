@@ -21,5 +21,13 @@ export const trendApi = {
       params: { country, top_n }
     });
     return response.data;
+  },
+
+  // 플랫폼 검색어 추천
+  getPlatformKeywords: async (country = 'KR') => {
+    const response = await apiClient.get('/trend/platform-keywords', {
+      params: { country }
+    });
+    return response.data;
   }
 };

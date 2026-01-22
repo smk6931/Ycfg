@@ -128,12 +128,14 @@ class ManualKeywordRequest(BaseModel):
     deep_analysis: bool = False
 
 
+
 class TrendCollectionResponse(BaseModel):
     """트렌드 수집 결과"""
     success: bool
     message: str
     keywords_count: int
     top_keywords: List[str] = []
+    ai_keywords: List[str] = []  # GenAI 추출 마케팅 키워드
     instagram_count: int = 0
     youtube_count: int = 0
     news_count: int = 0
@@ -142,3 +144,11 @@ class TrendRecommendationRequest(BaseModel):
     """트렌드 추천 요청"""
     category: str
     country: str = "KR"
+
+class PlatformKeywordsResponse(BaseModel):
+    """플랫폼 검색어 응답"""
+    success: bool
+    platform: str  # "nate", "yahoo_japan", etc.
+    keywords: List[str] = []
+    message: str = ""
+

@@ -38,8 +38,11 @@ const TrendCollector = () => {
   const [analyzing, setAnalyzing] = useState(false);
   const [keywords, setKeywords] = useState([]);
   const [translateMode, setTranslateMode] = useState(false); // 번역 모드 상태
-  const [topKeywords, setTopKeywords] = useState([]); // 실시간 수집 키워드 (NEW)
-  const [source, setSource] = useState('auto'); // 수집 소스 선택 (NEW)
+  const [topKeywords, setTopKeywords] = useState([]); // 실시간 수집 키워드 (Top 20)
+  const [aiKeywords, setAiKeywords] = useState([]); // GenAI 마케팅 키워드
+  const [platformKeywords, setPlatformKeywords] = useState([]); // 플랫폼 검색어
+  const [platformLoading, setPlatformLoading] = useState(false);
+  const [source, setSource] = useState('auto'); // 수집 소스 선택
 
   const handleCollect = async () => {
     setLoading(true);
@@ -47,15 +50,15 @@ const TrendCollector = () => {
     setContents({ youtube: [], news: [] });
     setKeywords([]); // 분석 결과 초기화
     setTopKeywords([]); // 키워드 초기화
+    setAiKeywords([]); // AI 키워드 초기화
     setTranslateMode(false); // 번역 모드 초기화
 
     try {
-      // 선택된 소스로 수집 요청
       const res = await trendApi.collectTrending(country, source);
-      // 백엔드가 { youtube: [], news: [], top_keywords: [] } 형태를 반환함
       if (res) {
         if (res.youtube) setContents(res);
         if (res.top_keywords) setTopKeywords(res.top_keywords);
+        if (res.ai_keywords) setAiKeywords(res.ai_keywords);
       } else {
         setError('데이터 형식이 올바르지 않습니다.');
       }
@@ -64,6 +67,24 @@ const TrendCollector = () => {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePlatformKeywords = async () => {
+    setPlatformLoading(true);
+    try {
+      const res = await trendApi.getPlatformKeywords(country);
+      if (res && res.success) {
+        setPlatformKeywords(res.keywords);
+      } else {
+        alert(res.message || '플랫폼 검색어 수집 실패');
+        setPlatformKeywords([]);
+      }
+    } catch (err) {
+      console.error('플랫폼 검색어 실패', err);
+      alert('플랫폼 검색어를 지원하지 않는 국가입니다.');
+    } finally {
+      setPlatformLoading(false);
     }
   };
 
@@ -201,16 +222,97 @@ const TrendCollector = () => {
           </select>
         </div>
 
-        <button
-          onClick={handleCollect}
-          disabled={loading}
-          className="btn-primary"
-          style={{ padding: '1rem 3rem', fontSize: '1.1rem' }}
-        >
-          {loading ? <span className="loader"></span> : `🎬 ${countries.find(c => c.code === country)?.name} 인기 콘텐츠 수집`}
-        </button>
+        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+          <button
+            onClick={handleCollect}
+            disabled={loading}
+            className="btn-primary"
+            style={{ padding: '1rem 2.5rem', fontSize: '1.1rem' }}
+          >
+            {loading ? <span className="loader"></span> : `🎬 ${countries.find(c => c.code === country)?.name} 콘텐츠 수집`}
+          </button>
+
+          {(country === 'KR' || country === 'JP') && (
+            <button
+              onClick={handlePlatformKeywords}
+              disabled={platformLoading}
+              style={{
+                padding: '1rem 2.5rem',
+                fontSize: '1.1rem',
+                borderRadius: '20px',
+                border: '1px solid rgba(139, 92, 246, 0.5)',
+                background: 'rgba(139, 92, 246, 0.1)',
+                color: 'white',
+                cursor: platformLoading ? 'not-allowed' : 'pointer',
+                fontWeight: 'bold'
+              }}
+            >
+              {platformLoading ? '수집 중...' : `🔍 플랫폼 검색어 추천`}
+            </button>
+          )}
+        </div>
         {error && <div style={{ color: '#ef4444', marginTop: '1rem' }}>{error}</div>}
       </div>
+
+      {/* 플랫폼 검색어 배너 */}
+      {platformKeywords.length > 0 && (
+        <div style={{
+          marginBottom: '2rem',
+          padding: '1rem',
+          background: 'rgba(59, 130, 246, 0.1)',
+          borderRadius: '12px',
+          border: '1px solid rgba(59, 130, 246, 0.3)',
+          textAlign: 'center'
+        }}>
+          <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.1rem', color: '#3b82f6' }}>
+            🔍 {country === 'JP' ? 'Yahoo! Japan' : 'Nate'} 실시간 검색어
+          </h3>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem', justifyContent: 'center' }}>
+            {platformKeywords.map((k, idx) => (
+              <span key={idx} style={{
+                padding: '0.4rem 0.8rem',
+                borderRadius: '16px',
+                background: 'rgba(59, 130, 246, 0.15)',
+                color: 'white',
+                fontSize: '0.9rem',
+                border: '1px solid rgba(59, 130, 246, 0.4)'
+              }}>
+                {idx + 1}. {k}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* AI 마케팅 키워드 배너 */}
+      {aiKeywords.length > 0 && (
+        <div style={{
+          marginBottom: '2rem',
+          padding: '1rem',
+          background: 'rgba(168, 85, 247, 0.1)',
+          borderRadius: '12px',
+          border: '1px solid rgba(168, 85, 247, 0.3)',
+          textAlign: 'center'
+        }}>
+          <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.1rem', color: '#a855f7' }}>
+            🤖 AI 추천 마케팅 키워드
+          </h3>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem', justifyContent: 'center' }}>
+            {aiKeywords.map((k, idx) => (
+              <span key={idx} style={{
+                padding: '0.4rem 0.8rem',
+                borderRadius: '16px',
+                background: 'rgba(168, 85, 247, 0.15)',
+                color: 'white',
+                fontSize: '0.9rem',
+                border: '1px solid rgba(168, 85, 247, 0.4)'
+              }}>
+                {k}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* AI 트렌드 분석 리포트 섹션 */}
       {filteredItems.length > 0 && (
