@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     APIFY_TOKEN: str
     YOUTUBE_API_KEY: str
     OPENAI_API_KEY: str
+    GEMINI_API_KEY: str
     
     # Google Sheets (Optional - 호환성 유지)
     GOOGLE_SHEET_ID: Optional[str] = None

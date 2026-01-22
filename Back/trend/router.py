@@ -84,3 +84,28 @@ async def get_trending_contents(
             } for n in news_list
         ]
     }
+
+
+@router.get("/trending/keywords")
+async def get_trending_keywords(
+    country: str = "KR",
+    top_n: int = 20,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    오늘 수집된 콘텐츠에서 핵심 키워드 추출 (NLP 분석)
+    """
+    from .analyzer import KeywordAnalyzer
+    
+    # 먼저 콘텐츠 조회
+    contents = await get_trending_contents(country=country, limit=100, db=db)
+    
+    # 키워드 분석
+    analyzer = KeywordAnalyzer()
+    keywords = await analyzer.extract_keywords(contents, country=country, top_n=top_n)
+    
+    return {
+        "country": country,
+        "keywords": keywords,
+        "total_contents": len(contents.get('youtube', [])) + len(contents.get('news', []))
+    }

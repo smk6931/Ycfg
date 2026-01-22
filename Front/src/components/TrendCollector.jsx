@@ -15,8 +15,10 @@ const TrendCollector = () => {
     { code: 'ID', name: '인도네시아' }
   ];
 
-  // 초기 로딩
+  // 초기 로딩 및 국가 변경 시
   useEffect(() => {
+    setKeywords([]); // 국가 변경 시 분석 결과 초기화
+    setTranslateMode(false); // 번역 모드도 초기화
     fetchContents();
   }, [country]);
 
@@ -35,6 +37,8 @@ const TrendCollector = () => {
     setLoading(true);
     setError('');
     setContents({ youtube: [], news: [] });
+    setKeywords([]); // 분석 결과 초기화
+    setTranslateMode(false); // 번역 모드 초기화
 
     try {
       const res = await trendApi.collectTrending(country);
@@ -55,6 +59,27 @@ const TrendCollector = () => {
   const [filter, setFilter] = useState('All'); // 필터 상태 추가
 
   // ... (중략)
+
+  /* AI 분석 관련 State & Handler */
+  const [analyzing, setAnalyzing] = useState(false);
+  const [keywords, setKeywords] = useState([]);
+  const [translateMode, setTranslateMode] = useState(false); // 번역 모드 상태
+
+  const handleAnalyze = async () => {
+    setAnalyzing(true);
+    try {
+      // AI 분석 API 호출 (top_n=6 정도로 카드 UI에 알맞게)
+      const res = await trendApi.getTrendingKeywords(country, 6);
+      if (res && res.keywords) {
+        setKeywords(res.keywords);
+      }
+    } catch (err) {
+      console.error("분석 실패", err);
+      alert("AI 분석 중 오류가 발생했습니다.");
+    } finally {
+      setAnalyzing(false);
+    }
+  };
 
   const allItems = [
     ...contents.youtube.map(item => ({ ...item, type: 'video', score: Math.floor(item.views / 1000), source: 'YouTube' })),
@@ -101,7 +126,7 @@ const TrendCollector = () => {
 
       {/* 소스 필터 탭 */}
       <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginBottom: '2rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '1rem' }}>
-        {['All', 'YouTube', 'Google News', 'Keyword'].map((f) => (
+        {['All', 'YouTube', 'Google News', ...(country === 'KR' ? ['Keyword'] : [])].map((f) => (
           <button
             key={f}
             onClick={() => setFilter(f)}
@@ -133,6 +158,101 @@ const TrendCollector = () => {
         </button>
         {error && <div style={{ color: '#ef4444', marginTop: '1rem' }}>{error}</div>}
       </div>
+
+      {/* AI 트렌드 분석 리포트 섹션 */}
+      {filteredItems.length > 0 && (
+        <div style={{ marginBottom: '2rem', padding: '1.5rem', background: 'rgba(139, 92, 246, 0.05)', borderRadius: '16px', border: '1px solid rgba(139, 92, 246, 0.2)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: keywords.length > 0 ? '1rem' : 0 }}>
+            <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              🤖 AI 트렌드 분석 리포트
+              {analyzing && <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: 'normal' }}> (분석 중...)</span>}
+            </h3>
+
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              {keywords.length > 0 && (
+                <button
+                  onClick={() => setTranslateMode(!translateMode)}
+                  style={{
+                    background: translateMode ? 'var(--primary)' : 'rgba(255,255,255,0.1)',
+                    border: 'none',
+                    padding: '0.4rem 0.8rem',
+                    borderRadius: '8px',
+                    color: translateMode ? 'white' : 'var(--text-muted)',
+                    cursor: 'pointer',
+                    fontSize: '0.85rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.3rem',
+                    marginRight: '0.5rem'
+                  }}
+                >
+                  🌐 {translateMode ? '한국어 번역 ON' : '원문 보기'}
+                </button>
+              )}
+
+              {keywords.length === 0 && (
+                <button
+                  onClick={handleAnalyze}
+                  disabled={analyzing}
+                  style={{
+                    background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
+                    border: 'none',
+                    padding: '0.6rem 1.2rem',
+                    borderRadius: '20px',
+                    color: 'white',
+                    fontWeight: 'bold',
+                    cursor: analyzing ? 'not-allowed' : 'pointer',
+                    opacity: analyzing ? 0.7 : 1,
+                    boxShadow: '0 4px 15px rgba(168, 85, 247, 0.4)'
+                  }}
+                >
+                  {analyzing ? '분석 중...' : '✨ 지금 분석하기'}
+                </button>
+              )}
+
+              {keywords.length > 0 && (
+                <button
+                  onClick={handleAnalyze}
+                  disabled={analyzing}
+                  style={{
+                    background: 'rgba(255,255,255,0.1)',
+                    border: 'none',
+                    padding: '0.4rem 0.8rem',
+                    borderRadius: '8px',
+                    color: 'var(--text-muted)',
+                    cursor: 'pointer',
+                    fontSize: '0.85rem'
+                  }}
+                >
+                  🔄 다시 분석
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* 분석 결과 (키워드 카드) */}
+          {keywords.length > 0 && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '1rem', marginTop: '1rem' }}>
+              {keywords.map((k, idx) => (
+                <div key={idx} className="glass-card" style={{ padding: '1rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                    <span style={{ fontWeight: 'bold', color: 'var(--primary)', fontSize: '1.1rem' }}>#{idx + 1}</span>
+                    <span style={{ fontSize: '0.8rem', background: 'rgba(255,255,255,0.1)', padding: '0.2rem 0.6rem', borderRadius: '10px' }}>
+                      언급 {k.count}회
+                    </span>
+                  </div>
+                  <div style={{ fontWeight: 'bold', marginBottom: '0.5rem', fontSize: '1.05rem', minHeight: '1.5em' }}>
+                    {translateMode ? (k.keyword_kr || k.keyword) : k.keyword}
+                  </div>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>
+                    {k.reason}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 콘텐츠 리스트 (Table View) */}
       <div style={{ overflowX: 'auto' }}>

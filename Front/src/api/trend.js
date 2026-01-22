@@ -13,5 +13,13 @@ export const trendApi = {
       params: { country, limit }
     });
     return response.data;
+  },
+
+  // 트렌드 키워드 분석 (AI)
+  getTrendingKeywords: async (country = 'KR', top_n = 10) => {
+    const response = await apiClient.get('/trend/trending/keywords', {
+      params: { country, top_n }
+    });
+    return response.data;
   }
 };

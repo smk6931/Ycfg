@@ -33,3 +33,7 @@ loguru>=0.7.2
 
 # Trend Analysis (Free Alternative to Apify)
 pytrends>=4.9.0
+
+# NLP (Keyword Extraction)
+konlpy>=0.6.0
+spacy>=3.7.0

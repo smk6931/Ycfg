@@ -10,20 +10,18 @@ import asyncio
 
 from .models import Keyword, InstagramContent, YouTubeContent, NewsContent
 from .schemas import TrendCollectionResponse
-from ..clients.apify_client import ApifyService
 from ..clients.youtube_client import YouTubeClient
 from ..clients.rss_client import RSSClient
-from ..clients.crawler_client import CrawlerClient
+from ..clients.scraper_client import ScraperClient
 
 class TrendService:
     """트렌드 수집 및 분석 서비스"""
     
     def __init__(self, db: AsyncSession):
         self.db = db
-        self.apify = ApifyService()
         self.youtube = YouTubeClient()
-        self.news = RSSClient()
-        self.crawler = CrawlerClient()
+        self.rss = RSSClient()
+        self.scraper = ScraperClient()
 
     async def collect_trending_contents(self, country: str) -> TrendCollectionResponse:
         """
@@ -64,7 +62,7 @@ class TrendService:
             logger.warning("⚠️ YouTube Trending 0개 -> 실시간 검색어로 대체 수집 시도")
             try:
                 loop = asyncio.get_event_loop()
-                signal_keywords = await loop.run_in_executor(None, self.crawler._crawl_signal_bz)
+                signal_keywords = await loop.run_in_executor(None, self.scraper.crawl_signal_bz)
                 if signal_keywords:
                     top_keyword = signal_keywords[0]['keyword']
                     logger.info(f"🔎 대체 검색어: {top_keyword}")
@@ -80,12 +78,12 @@ class TrendService:
         # 2. Google News RSS 수집
         news_count = 0
         loop = asyncio.get_event_loop()
-        articles = await loop.run_in_executor(None, self.crawler._fetch_google_news_rss, country)
+        articles = await loop.run_in_executor(None, self.rss.fetch_google_news, country)
         
         # 3. (한국 전용) Signal.bz 실시간 검색어 수집
         if country == 'KR':
             try:
-                signal_keywords = await loop.run_in_executor(None, self.crawler._crawl_signal_bz)
+                signal_keywords = await loop.run_in_executor(None, self.scraper.crawl_signal_bz)
                 if signal_keywords:
                     logger.info(f"✅ Signal.bz 추가: {len(signal_keywords)}개")
                     # 실검을 뉴스 리스트 앞단에 추가
@@ -109,6 +107,7 @@ class TrendService:
                     'description': '',
                     'url': article.get('url', ''),
                     # 실검의 경우 구글 검색 URL 생성
+                    # url이 이미 위에서 처리되어 들어올 수도 있으므로 체크
                     'url': article.get('url') or (f"https://www.google.com/search?q={article['keyword'].replace('🔥 ', '')}" if '🔥' in article['keyword'] else ''),
                     'published_at':  article.get('published_at') or datetime.now().isoformat()
                 })
